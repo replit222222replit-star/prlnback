@@ -108,9 +108,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _openBot() async {
     final botUsername = dotenv.env['BOT_USERNAME'] ?? '';
     final uri = Uri.parse('https://t.me/$botUsername');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   // Скопировать команду
