@@ -1,3 +1,4 @@
+```yaml
 name: Build NEO-GENESIS APK
 
 on:
@@ -47,6 +48,7 @@ jobs:
           echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
           echo "GROQ_ENDPOINT=${{ secrets.GROQ_ENDPOINT }}" >> .env
           echo "REMOTE_BASE_URL=${{ secrets.REMOTE_BASE_URL }}" >> .env
+          echo "BOT_USERNAME=${{ secrets.BOT_USERNAME }}" >> .env
 
       - name: Create Backend .env
         run: |
@@ -81,3 +83,4 @@ jobs:
         with:
           name: neo-genesis-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+```
