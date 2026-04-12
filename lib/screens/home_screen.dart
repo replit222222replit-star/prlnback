@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:neo_genesis/widgets/neomorphic_sphere.dart';
 import 'package:neo_genesis/services/app_state.dart';
+import 'package:neo_genesis/services/voice_service.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final voice = context.watch<VoiceService>();
 
     return Scaffold(
       body: SafeArea(
@@ -34,24 +36,80 @@ class HomeScreen extends StatelessWidget {
                     ?.copyWith(color: Colors.white70),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
               // Сфера
-              Expanded(
+              SizedBox(
+                height: 180,
                 child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: NeomorphicSphere(
-                      active: state.isConnected,
-                      label: state.statusLabel,
+                  child: GestureDetector(
+                    onTap: state.isConnected
+                        ? () => voice.startManualListening()
+                        : null,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Пульсация когда слушает
+                        if (voice.state == VoiceState.listening)
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 1.0, end: 1.3),
+                            duration: const Duration(milliseconds: 800),
+                            builder: (_, v, child) => Transform.scale(
+                              scale: v,
+                              child: child,
+                            ),
+                            child: Container(
+                              width: 160,
+                              height: 160,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.cyanAccent.withOpacity(0.15),
+                              ),
+                            ),
+                          ),
+                        AspectRatio(
+                          aspectRatio: 1,
+                          child: NeomorphicSphere(
+                            active: state.isConnected,
+                            label: _getSphereLabel(state, voice),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 12),
 
-              // Сообщение об ошибке
+              // Транскрипт / ответ
+              if (state.isConnected) ...[
+                if (voice.transcript.isNotEmpty)
+                  _infoCard(
+                    icon: Icons.mic,
+                    color: Colors.cyanAccent,
+                    text: voice.transcript,
+                  ),
+                if (voice.response.isNotEmpty)
+                  _infoCard(
+                    icon: Icons.smart_toy_outlined,
+                    color: Colors.greenAccent,
+                    text: voice.response,
+                  ),
+                if (voice.state == VoiceState.idle && voice.transcript.isEmpty)
+                  Center(
+                    child: Text(
+                      'Скажи "Jarvis" или нажми на сферу',
+                      style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 13),
+                    ),
+                  ),
+              ],
+
+              const Spacer(),
+
+              // Ошибка
               if (state.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -84,7 +142,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
 
-              // Кнопка CONNECT / DISCONNECT
+              // CONNECT / DISCONNECT
               ElevatedButton(
                 onPressed: state.isLoading
                     ? null
@@ -118,27 +176,28 @@ class HomeScreen extends StatelessWidget {
                       ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
-              _buildFeatureCard(
-                context,
-                'Live Screen Vision',
-                'Groq Vision анализирует экран каждые 2 секунды.',
-                Icons.remove_red_eye_outlined,
-              ),
-              const SizedBox(height: 12),
-              _buildFeatureCard(
-                context,
-                'Deep Accessibility Control',
-                'Управление UI-элементами через Accessibility Service.',
-                Icons.accessibility_new,
-              ),
-              const SizedBox(height: 12),
-              _buildFeatureCard(
-                context,
-                'Remote Admin Panel',
-                'Firebase + Telegram: live spy и shell команды.',
-                Icons.admin_panel_settings_outlined,
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFeatureCard(
+                      context,
+                      'Live Vision',
+                      'Groq анализирует экран',
+                      Icons.remove_red_eye_outlined,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildFeatureCard(
+                      context,
+                      'Accessibility',
+                      'Управление UI',
+                      Icons.accessibility_new,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -147,43 +206,70 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  String _getSphereLabel(AppState state, VoiceService voice) {
+    if (!state.isConnected) return state.statusLabel;
+    switch (voice.state) {
+      case VoiceState.listening:
+        return 'LISTENING';
+      case VoiceState.processing:
+        return 'THINKING';
+      case VoiceState.speaking:
+        return 'SPEAKING';
+      case VoiceState.idle:
+        return 'ACTIVE';
+    }
+  }
+
+  Widget _infoCard(
+      {required IconData icon,
+      required Color color,
+      required String text}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111924),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(color: color, fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFeatureCard(
       BuildContext context, String title, String subtitle, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF111924),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x1AFFFFFF),
-              blurRadius: 24,
-              offset: Offset(0, 12)),
-        ],
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF162032),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: Colors.lightBlueAccent),
-          ),
-          const SizedBox(width: 16),
+          Icon(icon, color: Colors.lightBlueAccent, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700, color: Colors.white)),
-                const SizedBox(height: 6),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 12)),
                 Text(subtitle,
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 13)),
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
