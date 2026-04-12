@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Wrapper stub for Android Gradle
+DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "$DIR/gradle/wrapper/gradle-wrapper.jar" ]; then
+  exec java -jar "$DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
+else
+  echo "Gradle wrapper jar missing. Install Gradle or add the wrapper JAR."
+  exit 1
+fi

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">NEO-GENESIS</string>
+    <string name="accessibility_service_description">NEO-GENESIS deep accessibility control service</string>
+</resources>

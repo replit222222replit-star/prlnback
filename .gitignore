@@ -1,0 +1,27 @@
+# Flutter
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.packages
+.pub-cache/
+.pub/
+.idea/
+.vscode/
+*.iml
+
+# Android
+android/.gradle/
+android/app/debug.apk
+android/app/profile.apk
+android/app/release.apk
+
+# Firebase
+/backend/node_modules/
+backend/dist/
+backend/.firebase/
+
+# Misc
+.DS_Store
+*.log
+.env

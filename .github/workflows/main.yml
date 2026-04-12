@@ -1,0 +1,83 @@
+name: Build NEO-GENESIS APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.29.3'
+
+      - name: Create local.properties
+        run: |
+          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
+
+      - name: Install Gradle and generate wrapper
+        run: |
+          curl -L "https://services.gradle.org/distributions/gradle-8.4-bin.zip" -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/gradle-install
+          /tmp/gradle-install/gradle-8.4/bin/gradle wrapper \
+            --gradle-version 8.4 \
+            --project-dir android
+          chmod +x android/gradlew
+
+      - name: Create Google Services JSON
+        run: |
+          mkdir -p android/app
+          echo '${{ secrets.FIREBASE_CONFIG }}' > android/app/google-services.json
+
+      - name: Create Flutter .env
+        run: |
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
+          echo "GROQ_ENDPOINT=${{ secrets.GROQ_ENDPOINT }}" >> .env
+          echo "REMOTE_BASE_URL=${{ secrets.REMOTE_BASE_URL }}" >> .env
+
+      - name: Create Backend .env
+        run: |
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > backend/.env
+          echo "ALLOWED_TELEGRAM_IDS=${{ secrets.ALLOWED_TELEGRAM_IDS }}" >> backend/.env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> backend/.env
+          echo "PORT=5000" >> backend/.env
+
+      - name: Create assets and icons
+        run: |
+          mkdir -p assets/shaders assets/images
+          pip install pillow -q
+          python3 -c "
+          from PIL import Image
+          import os
+          img = Image.new('RGB', (192,192), color=(33,150,243))
+          sizes = {'mdpi':48,'hdpi':72,'xhdpi':96,'xxhdpi':144,'xxxhdpi':192}
+          for d,s in sizes.items():
+              os.makedirs(f'android/app/src/main/res/mipmap-{d}', exist_ok=True)
+              img.resize((s,s)).save(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png')
+          print('Icons created')
+          "
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: neo-genesis-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
