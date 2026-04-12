@@ -1,4 +1,3 @@
-```yaml
 name: Build NEO-GENESIS APK
 
 on:
@@ -83,4 +82,3 @@ jobs:
         with:
           name: neo-genesis-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-```
