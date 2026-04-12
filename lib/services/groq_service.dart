@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class GroqService {
   final String apiKey;
   final String endpoint;
-  static const String _model = 'llama-3.3-70b-specdec';
+  static const String _model = 'llama-3.3-70b-versatile';
 
   GroqService({required this.apiKey, required this.endpoint});
 
