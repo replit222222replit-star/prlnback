@@ -1,4 +1,4 @@
-package com.anva4ik.neogenesis
+package com.anvy4ik.neogenesis
 
 import android.app.Activity
 import android.content.Context
@@ -20,7 +20,8 @@ import java.io.ByteArrayOutputStream
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "neo_genesis/screen"
+    private val SCREEN_CHANNEL = "neo_genesis/screen"
+    private val SERVICE_CHANNEL = "neo_genesis/service"
     private val CAPTURE_REQUEST_CODE = 1001
 
     private var projectionManager: MediaProjectionManager? = null
@@ -35,7 +36,8 @@ class MainActivity : FlutterActivity() {
         projectionManager =
             getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        // ── Screen capture channel ────────────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCREEN_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "requestPermission" -> {
@@ -43,11 +45,25 @@ class MainActivity : FlutterActivity() {
                         val intent = projectionManager!!.createScreenCaptureIntent()
                         startActivityForResult(intent, CAPTURE_REQUEST_CODE)
                     }
-                    "captureScreen" -> {
-                        captureScreen(result)
-                    }
+                    "captureScreen" -> captureScreen(result)
                     "stopCapture" -> {
                         stopCapture()
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // ── Foreground service channel ────────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SERVICE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startService" -> {
+                        NeoForegroundService.start(this)
+                        result.success(true)
+                    }
+                    "stopService" -> {
+                        NeoForegroundService.stop(this)
                         result.success(true)
                     }
                     else -> result.notImplemented()
@@ -113,7 +129,6 @@ class MainActivity : FlutterActivity() {
                 bitmap.copyPixelsFromBuffer(buffer)
                 image.close()
 
-                // Сжимаем до 720p для экономии трафика
                 val scaled = Bitmap.createScaledBitmap(bitmap, 720,
                     (720f * bitmap.height / bitmap.width).toInt(), true)
                 bitmap.recycle()
