@@ -44,6 +44,9 @@ class _RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<_RootScreen> {
+  bool _initialized = false;
+  bool _wasConnected = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,21 +55,47 @@ class _RootScreenState extends State<_RootScreen> {
 
   Future<void> _init() async {
     await [Permission.microphone, Permission.speech].request();
-    if (mounted) await context.read<VoiceService>().initialize();
+    if (mounted) {
+      await context.read<VoiceService>().initialize();
+    }
+  }
+
+  // Side effects ТОЛЬКО здесь — не в build()
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final appState = context.watch<AppState>();
+    final isConnected = appState.isConnected;
+    final isAuthenticated = appState.isAuthenticated;
+
+    final shouldListen = isAuthenticated && isConnected;
+
+    // Запускаем/останавливаем только при реальном изменении состояния
+    if (shouldListen && !_wasConnected) {
+      _wasConnected = true;
+      final voice = context.read<VoiceService>();
+      // Небольшая задержка чтобы UI успел перестроиться
+      Future.microtask(() {
+        if (mounted) voice.startWakeWordDetection();
+      });
+    } else if (!shouldListen && _wasConnected) {
+      _wasConnected = false;
+      final voice = context.read<VoiceService>();
+      final vision = context.read<ScreenVisionService>();
+      Future.microtask(() {
+        if (mounted) {
+          voice.stopWakeWordDetection();
+          vision.stopVision();
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isAuthenticated = context.select<AppState, bool>((s) => s.isAuthenticated);
-    final isConnected = context.select<AppState, bool>((s) => s.isConnected);
-
-    if (isAuthenticated && isConnected) {
-      context.read<VoiceService>().startWakeWordDetection();
-    } else {
-      context.read<VoiceService>().stopWakeWordDetection();
-      context.read<ScreenVisionService>().stopVision();
-    }
-
+    // build() теперь ТОЛЬКО рисует UI — никаких side effects
     return isAuthenticated ? const HomeScreen() : const AuthScreen();
   }
 }
