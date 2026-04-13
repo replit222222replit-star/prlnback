@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:neo_genesis/services/groq_service.dart';
 import 'package:neo_genesis/services/remote_api.dart';
@@ -17,6 +18,9 @@ class AppState extends ChangeNotifier {
   late final GroqService _groq;
   late final RemoteApi _api;
   Timer? _heartbeatTimer;
+
+  // MethodChannel для управления foreground service из Dart
+  static const _serviceChannel = MethodChannel('neo_genesis/service');
 
   AppState() {
     _groq = GroqService(
@@ -40,6 +44,24 @@ class AppState extends ChangeNotifier {
     _authToken = token;
     _telegramId = telegramId;
     notifyListeners();
+  }
+
+  // ─── Foreground Service ───────────────────────────────────────────────────
+
+  Future<void> _startForegroundService() async {
+    try {
+      await _serviceChannel.invokeMethod('startService');
+    } catch (e) {
+      debugPrint('[AppState] Could not start foreground service: $e');
+    }
+  }
+
+  Future<void> _stopForegroundService() async {
+    try {
+      await _serviceChannel.invokeMethod('stopService');
+    } catch (e) {
+      debugPrint('[AppState] Could not stop foreground service: $e');
+    }
   }
 
   // ─── Подключение / отключение ─────────────────────────────────────────────
@@ -66,6 +88,9 @@ class AppState extends ChangeNotifier {
       isConnected = true;
       statusLabel = 'ACTIVE';
 
+      // Запускаем foreground service — теперь слушает даже в фоне
+      await _startForegroundService();
+
       _heartbeatTimer =
           Timer.periodic(const Duration(seconds: 30), (_) {
         _api.sendHeartBeat(_telegramId ?? 'unknown', {
@@ -91,6 +116,7 @@ class AppState extends ChangeNotifier {
     isConnected = false;
     statusLabel = 'STANDBY';
     errorMessage = null;
+    _stopForegroundService();
     notifyListeners();
   }
 
